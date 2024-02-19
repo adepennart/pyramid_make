@@ -31,14 +31,14 @@ conda install python= 3.12.1
 ```
 
 ### Dependencies
-The script runs with pip\==24.0, pillow\==10.2.0, numpy\==1.26.3, matplotlib\==3.8.2, scikit-image\==0.22.0 and python-catmaid==2.0.4
+The script runs with pip=24.0, pillow=10.2.0, numpy=1.26.3, matplotlib=3.8.2 and scikit-image=0.22.0.
 
 Update your dependencies, if you do not already have the versions for these dependencies.
 
 ```bash=
-pip install --upgrade pip==21.3.1 wheel==0.37.1 setuptools==59.6.0
+pip install --upgrade pip==24.0
 
-pip install python-catmaid==2.0.4 -U
+pip install pillow\==10.2.0 numpy\==1.26.3 matplotlib\==3.8.2 scikit-image\==0.22.0
 ```
 
 ## Usage

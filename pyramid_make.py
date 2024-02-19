@@ -29,7 +29,6 @@ known error:
     2. does not take multiple images as input
     3. pad may be good to add
    	 
-based off of Albert Cardona 2011-06-05 script
 """
 
 #import packages

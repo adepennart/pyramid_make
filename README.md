@@ -38,7 +38,7 @@ Update your dependencies, if you do not already have the versions for these depe
 ```bash=
 pip install --upgrade pip==24.0
 
-pip install pillow\==10.2.0 numpy\==1.26.3 matplotlib\==3.8.2 scikit-image\==0.22.0
+pip install pillow==10.2.0 numpy==1.26.3 matplotlib==3.8.2 scikit-image==0.22.0
 ```
 
 ## Usage

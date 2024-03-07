@@ -1,112 +1,225 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Title: pyramid_make.py
-
-Date: Feb 19nd, 2024
-
-Author: Auguste de Pennart
-
+Title: tif_to_pyramid.py
+Date: March 7th, 2024
+Author: Valentin Gillet and Auguste de Pennart
 Description:
-	makes a tiled image pyramid for one input image
+    makes image pyramids from image(s)
 
 List of functions:
-    No user defined functions are used in the program.
+    make_mask
+        processing, more information online
+    process_image
+        makes image pyramid
+        curerntly does not process image
+    process_image_stack
+        parralelizes process_image
 
 List of "non standard modules"
-    No user defined modules are used in the program.
+    plot_functions:
+        a module containing all functions to create 2d plot of neurons
 
 Procedure:
-    1. takes image as input and trnasforms into an array
-    2. uses skimage to make array into pyramid object (array of several arrays)
-    3. from defined tile size (currently set to 1024), tiles images of pyramid and exports them in the defined size
+    1. takes image folder as input
+    2. makes image pyramid
+    3. exports pyramid to output folder
 
 Usage:
-	python pyramid_make.py
-    or
-    python3 pyramid_make.py
+    tif_to_pyramid.py [-h] [-v] -i INPUT_FOLDER -o OUTPUT_FOLDER
+                         [-t TILE_SIZE] [-l LAYER_NUMBER]
+                         [-d DOWNSCALE_FACTOR] [-c CORES]
 
 known error:
-    1. numpy.ix might be faster than nested for loop
-    2. does not take multiple images as input
-    3. pad may be good to add
-   	 
-based off of Albert Cardona 2011-06-05 script
-"""
+    1. processing currently disabled
 
-#import packages
-import os
-from PIL import Image
-import numpy as np
+ """
+import logging
 import matplotlib.pyplot as plt
+import numpy as np
+import os
+import argparse
+import sys
 
+from multiprocessing import Pool
+from PIL import Image
 from skimage import data
 from skimage.transform import pyramid_gaussian
-from numpy import asarray
+from skimage import filters, exposure
+from tqdm import tqdm
+from scipy import ndimage
 
-#variables
-layer_limit=4 # how many layers to your layer pyramid
-downscaled=2 # factor by which to downsample by
-tile_size=1024 #size of tile to tile pyramid with
-Image.MAX_IMAGE_PIXELS = None # disable default warning message
-dir_name="output" #name of yout main dir
+logging.basicConfig(level=logging.INFO)
 
-#import image(s)
+Image.MAX_IMAGE_PIXELS = None
 
-try:  
-    img  = Image.open("ov_z1_.tif")  #default input image
-    # img  = Image.open("1.tif")  
 
-    #try this later
-    # img = np.array(Image.open("1.tif"), dtype=np.uint8)
-except IOError: 
-    pass
+def make_mask(image):
+    kernel = np.array([[1,1,1],
+                       [1,1,1],
+                       [1,1,1]])
+            
+    mask_data = ndimage.binary_erosion(np.pad(image, 1),
+                                       structure=kernel,
+                                       iterations=1).astype(int)
+    mask_data = ndimage.binary_fill_holes(mask_data)
 
-image = asarray(img) #turn image to array
+    return mask_data[1:-1, 1:-1]
 
-#debug image show to make sure image is input as wanted
-# fig, ax = plt.subplots()
-# ax.imshow(image,cmap="gray")
-# plt.show()
 
-#array to pyramid array
-pyramid = tuple(pyramid_gaussian(image, downscale=downscaled, max_layer=layer_limit))#, channel_axis=-1))
-work_dir=os.getcwd()#get working current working directory for where to place output folder
-
-#main dir is equivalent to dir 0 right now in trakem2
-main_dir = os.path.join(work_dir, dir_name)  # make new directory
-try:  # if error, directory already exists
-    os.mkdir(main_dir)
-except OSError:
-    pass
-
-for num in range(0,len(pyramid)): #goes through each layer of pyramid
-    #this will be subnested
-    nested_dir=os.path.join(main_dir,str(num))
-    try:  # if error, directory already exists
-        os.mkdir(nested_dir)
-    except OSError:
-        pass
-
-    #make your image divisible by tile size by adding black counter to image
-    rows, cols = pyramid[num].shape
-    black_row=(((int(rows/tile_size)+1)*tile_size)-rows,cols)
-    black_col=(rows+((int(rows/tile_size)+1)*tile_size)-rows,((int(cols/tile_size)+1)*tile_size)-cols)#check
-    black_numpy_row=np.zeros(black_row,dtype=np.uint8)  
-    black_numpy_col=np.zeros(black_col,dtype=np.uint8)
-    added_pyramid=np.append(pyramid[num],black_numpy_row,axis = 0)
-    added_pyramid=np.append(added_pyramid,black_numpy_col,axis = 1)
-    rows, cols = added_pyramid.shape
+def process_image(file_path_dict):
     
-    #go through each column and row and export image
-    for n in range(0, int(rows/tile_size)):
-        #define current tile of interest with max and min parameters
-        row_max_tile=(n+1)*tile_size
-        row_min_tile=(n+1)*tile_size-tile_size
-        for col in range(0,int(cols/tile_size)):
-            max_tile=(col+1)*tile_size
-            min_tile=(col+1)*tile_size-tile_size
-            image_arr = added_pyramid[row_min_tile:row_max_tile,min_tile:max_tile]*255
-            im = Image.fromarray(image_arr) #make image
-            im = im.convert("L")
-            nested_file=os.path.join(nested_dir,str(n)+"_"+str(col)+".jpg") #make file path
-            im.save(nested_file,"JPEG") #export
-          
+    #splitting into two lists, for simplicity
+    filepath=file_path_dict[0]
+    meta_data=file_path_dict[1]
+    img  = Image.open(os.path.abspath(filepath))
+    image = np.asarray(img)
+    #pull up a try statement here for finding if windows or not
+    z = filepath[:-4].split('/')[-1]
+    if not z:
+        z = filepath[:-4].split('\\')[-1]
+
+    image_dir = os.path.join(meta_data[1], z)
+    try:
+        os.makedirs(image_dir, exist_ok=True)
+    except:
+        print('skipping')
+        return False
+
+    if meta_data[10]:
+        mask = make_mask(image)
+        # Gaussian + CLAHE, becomes float
+        image = filters.gaussian(image, sigma=meta_data[4])
+        image = exposure.equalize_adapthist(image, 
+                                            kernel_size=meta_data[5], 
+                                            nbins=meta_data[6], 
+                                            clip_limit=meta_data[7])
+        # Get back to 8bit
+        image = (image*255).astype(np.uint8)
+        image[np.logical_not(mask)] = 0
+    
+    # create pyramid array
+    pyramid = tuple(pyramid_gaussian(image, 
+                                     downscale=meta_data[9], 
+                                     max_layer=meta_data[8]))  
+
+    # For each pyramid layer, create tiles
+    for i, layer in enumerate(pyramid):
+        nested_dir=os.path.join(image_dir, str(i))
+        os.makedirs(nested_dir, exist_ok=True)
+        
+        y_tiles, x_tiles = np.array(layer.shape) // meta_data[3]
+        for y in range(y_tiles+1):
+            for x in range(x_tiles+1):
+                subarray = layer[y*meta_data[3]:(y+1)*meta_data[3], x*meta_data[3]:(x+1)*meta_data[3]]
+                if subarray.shape != (meta_data[3], meta_data[3]):
+                    # Pad array so it's correct tile size
+                    diff = meta_data[3] - np.array(subarray.shape)
+                    subarray = np.pad(subarray, 
+                                      ((0, diff[0]), (0, diff[1])), 
+                                      mode='constant', constant_values=0)
+
+                subarray = (subarray*255).astype(np.uint8)  # Get back to 8bit
+                # Save to file
+                filename = os.path.join(nested_dir, f'{y}_{x}.jpg')
+                im = Image.fromarray(subarray)
+                im.save(filename, 'JPEG') 
+    return True
+
+
+def process_image_stack(files_dir,
+                        n_workers,
+                        out_dir,
+                        process,
+                        tile_size=512,
+                        sigma_gauss=1,
+                        kernel_CLAHE=[300,300],
+                        nbins_CLAHE=256,
+                        clip_CLAHE=1.7,
+                        layer_limit_pyr=4,
+                        downscaled_pyr=2):
+    #making list of all viariables except files_dir, this will be added to all variables in inputs in the form of a dictionary, to allow iteration but also keeping the meta with each image
+    meta_data=[n_workers,out_dir,process,tile_size,sigma_gauss,kernel_CLAHE,nbins_CLAHE,clip_CLAHE,layer_limit_pyr,downscaled_pyr,process]
+    files_dir = os.path.abspath(files_dir)
+    files_list = os.listdir(files_dir)
+    main_dir = os.path.join(out_dir, 'pyramid')
+    os.makedirs(main_dir, exist_ok=True)
+
+    inputs = [os.path.join(files_dir, f) for f in files_list]
+    inputs_dict = {f:meta_data for f in inputs}
+    # full_list=[inputs,meta_data]
+    logging.info(f'Processing {len(inputs)} images from: {files_dir}')
+    logging.info(f'Using {n_workers} workers')
+    # Process images in parallel
+    with Pool(n_workers) as p:
+        results = list(tqdm(p.imap(process_image, inputs_dict.items()), total=len(inputs)))
+
+    logging.info('Done!')
+    logging.info(f'Output in: {main_dir}')
+    return
+
+if __name__ == '__main__':
+    usage='make an image pyramd of inputted image(s)'
+    parser=argparse.ArgumentParser(description=usage)#create an argument parser
+
+    #creates the argument for program version
+    parser.add_argument('-v', '--version',
+                        action='version',
+                        version='%(prog)s 1.0')
+    #creates the argument where input_folder will be inputted
+    parser.add_argument('-i', '--input_folder',
+                        metavar='INPUT_FOLDER',
+                        dest='files_dir',
+                        required=True,
+                        help='input folder')
+    #creates the argument where the output folder will be inputted
+    parser.add_argument('-o', '--output_folder',
+                        metavar='OUTPUT_FOLDER',
+                        dest='out_dir',
+                        required=True,
+                        help='output folder')
+    #creates the argument where the tile size will be inputted
+    parser.add_argument('-t', '--tile_size',
+                        metavar='TILE_SIZE',
+                        dest='tile_size',
+                        default=1024,
+                        type=int,
+                        help='the size of each individual tile making up an image')
+    #creates the argument where the layer number be inputted
+    parser.add_argument('-l', '--LAYER_number',
+                        metavar='LAYER_NUMBER',
+                        dest='layer_limit_pyr',
+                        default=4,
+                        type=int,
+                        help='number of layers referring to depth of pyramid')
+    #creates the argument where the downscale factor will be inputted
+    parser.add_argument('-d', '--dowwnscale_factor',
+                        metavar='DOWNSCALE_FACTOR',
+                        dest='downscaled_pyr',
+                        default=2,
+                        type=int,
+                        help='scaling factor between each layer')
+    #creates the argument where the number of cores will be inputted
+    parser.add_argument('-c', '--cores',
+                        metavar='CORES',
+                        dest='n_workers',
+                        default=1,
+                        type=int,
+                        help='number of cores to use')
+    args=parser.parse_args()#parses command line
+    #currently does not process images
+    process = False
+    process_image_stack(os.path.abspath(args.files_dir),
+                        args.n_workers,
+                        os.path.abspath(args.out_dir),
+                        process,
+                        args.tile_size,
+                        sigma_gauss=1,
+                        kernel_CLAHE=[300,300],
+                        nbins_CLAHE=256,
+                        clip_CLAHE=1.7,
+                        layer_limit_pyr=args.layer_limit_pyr,
+                        downscaled_pyr=args.downscaled_pyr
+                       )
+    
+    

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Title: tif_to_pyramid.py
+Title: pyramid_make.py
 Date: March 7th, 2024
 Author: Valentin Gillet and Auguste de Pennart
 Description:
@@ -26,7 +26,7 @@ Procedure:
     3. exports pyramid to output folder
 
 Usage:
-    tif_to_pyramid.py [-h] [-v] -i INPUT_FOLDER -o OUTPUT_FOLDER
+    pyramid_make.py [-h] [-v] -i INPUT_FOLDER -o OUTPUT_FOLDER
                          [-t TILE_SIZE] [-l LAYER_NUMBER]
                          [-d DOWNSCALE_FACTOR] [-c CORES]
 

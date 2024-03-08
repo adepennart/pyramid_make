@@ -71,7 +71,8 @@ def process_image(file_path_dict):
     
     #splitting into two lists, for simplicity
     filepath=file_path_dict[0]
-    meta_data=file_path_dict[1]
+    meta_data=file_path_dict[1][0]
+    file_num=file_path_dict[1][1]
     img  = Image.open(os.path.abspath(filepath))
     image = np.asarray(img)
     #pull up a try statement here for finding if windows or not
@@ -79,7 +80,7 @@ def process_image(file_path_dict):
     if not z:
         z = filepath[:-4].split('\\')[-1]
 
-    image_dir = os.path.join(meta_data[1], z)
+    image_dir = os.path.join(meta_data[1], str(file_num))
     try:
         os.makedirs(image_dir, exist_ok=True)
     except:
@@ -139,15 +140,14 @@ def process_image_stack(files_dir,
                         layer_limit_pyr=4,
                         downscaled_pyr=2):
     #making list of all viariables except files_dir, this will be added to all variables in inputs in the form of a dictionary, to allow iteration but also keeping the meta with each image
-    meta_data=[n_workers,out_dir,process,tile_size,sigma_gauss,kernel_CLAHE,nbins_CLAHE,clip_CLAHE,layer_limit_pyr,downscaled_pyr,process]
     files_dir = os.path.abspath(files_dir)
     files_list = os.listdir(files_dir)
     main_dir = os.path.join(out_dir, 'pyramid')
+    meta_data=[n_workers,main_dir,process,tile_size,sigma_gauss,kernel_CLAHE,nbins_CLAHE,clip_CLAHE,layer_limit_pyr,downscaled_pyr,process]
     os.makedirs(main_dir, exist_ok=True)
 
     inputs = [os.path.join(files_dir, f) for f in files_list]
-    inputs_dict = {f:meta_data for f in inputs}
-    # full_list=[inputs,meta_data]
+    inputs_dict = {f:[meta_data,n] for n, f in enumerate(inputs)} # can we avoid making nested list?
     logging.info(f'Processing {len(inputs)} images from: {files_dir}')
     logging.info(f'Using {n_workers} workers')
     # Process images in parallel

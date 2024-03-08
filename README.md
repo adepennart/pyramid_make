@@ -45,13 +45,13 @@ pip install pillow==10.2.0 numpy==1.26.3 matplotlib==3.8.2 scikit-image==0.22.0 
 ### Input
 The code can be run as follows. It has two required arguments; input and output folders.  
 ```bash=
-    tif_to_pyramid.py [-h] [-v] -i INPUT_FOLDER -o OUTPUT_FOLDER
+    pyramid_make.py [-h] [-v] -i INPUT_FOLDER -o OUTPUT_FOLDER
                          [-t TILE_SIZE] [-l LAYER_NUMBER]
                          [-d DOWNSCALE_FACTOR] [-c CORES]
 ```
 More information about optional flags can be found with the following help command.
 ```bash=
-    tif_to_pyramid.py -h
+    pyramid_make.py -h
 ```
 
 ### example

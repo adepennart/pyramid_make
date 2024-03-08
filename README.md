@@ -43,9 +43,20 @@ pip install pillow==10.2.0 numpy==1.26.3 matplotlib==3.8.2 scikit-image==0.22.0 
 
 ## Usage
 ### Input
-#change permissions in catmaid
-The code can be run as follows. It uses default input provided (ov_z1_.tif) and outputs to output.
+The code can be run as follows. It has two required arguments; input and output folders.  
 ```bash=
-   python pyramid_make.py
+    tif_to_pyramid.py [-h] [-v] -i INPUT_FOLDER -o OUTPUT_FOLDER
+                         [-t TILE_SIZE] [-l LAYER_NUMBER]
+                         [-d DOWNSCALE_FACTOR] [-c CORES]
+```
+More information about optional flags can be found with the following help command.
+```bash=
+    tif_to_pyramid.py -h
+```
+
+### example
+The following command will use the example input and recreate the example output using two cores.
+```bash=
+python pyramid_make.py -i input/ -o output/ -c 2
 ```
 

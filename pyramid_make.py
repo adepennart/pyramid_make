@@ -113,6 +113,8 @@ def process_image(file_path_dict):
         for y in range(y_tiles+1):
             for x in range(x_tiles+1):
                 subarray = layer[y*meta_data[3]:(y+1)*meta_data[3], x*meta_data[3]:(x+1)*meta_data[3]]
+                if not np.any(subarray > 0):
+                    continue
                 if subarray.shape != (meta_data[3], meta_data[3]):
                     # Pad array so it's correct tile size
                     diff = meta_data[3] - np.array(subarray.shape)

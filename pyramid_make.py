@@ -8,6 +8,8 @@ Description:
     makes image pyramids from image(s)
 
 List of functions:
+    file_sort
+        sort numerically file list
     make_mask
         processing, more information online
     process_image
@@ -37,9 +39,9 @@ known error:
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
-import os
+import os, re, sys
 import argparse
-import sys
+
 
 from multiprocessing import Pool
 from PIL import Image
@@ -53,6 +55,44 @@ logging.basicConfig(level=logging.INFO)
 
 Image.MAX_IMAGE_PIXELS = None
 
+# func:sorts through files
+# inputs:
+#	file_list:
+#		list of files to be sorted
+#	sort_by_digit:
+#		specified digit to sort by
+#	rev:
+#		places objects in descending order
+# #outputs:
+#	file_list:
+#		list of sorted files/objects
+def file_sort(file_list=None, sort_by_digit=0, rev=False):
+	for n, filename in enumerate(file_list):
+		for m, filename_2 in enumerate(file_list[n+1:len(file_list)]):
+			try:
+				match = int(re.findall("(\d+)", str(filename))[sort_by_digit])
+				match_2 = int(re.findall(
+					"(\d+)", str(filename_2))[sort_by_digit])
+			except IndexError:
+				print(" ERROR: Currently only works with filenames containing digits")
+				sys.exit("Currently only works with filenames containing digits")
+			if not rev:
+				if match > match_2:
+					temp_1 = filename
+					temp_2 = filename_2
+					filename = temp_2
+					filename_2 = temp_1
+					file_list[n] = temp_2
+					file_list[n+m+1] = temp_1
+			if rev:
+				if n < n+1:
+					temp_1 = filename
+					temp_2 = filename_2
+					filename = temp_2
+					filename_2 = temp_1
+					file_list[n] = temp_2
+					file_list[n+m+1] = temp_1
+	return file_list
 
 def make_mask(image):
     kernel = np.array([[1,1,1],
@@ -143,7 +183,7 @@ def process_image_stack(files_dir,
                         downscaled_pyr=2):
     #making list of all viariables except files_dir, this will be added to all variables in inputs in the form of a dictionary, to allow iteration but also keeping the meta with each image
     files_dir = os.path.abspath(files_dir)
-    files_list = os.listdir(files_dir)
+    files_list = file_sort(os.listdir(files_dir))
     main_dir = os.path.join(out_dir, 'pyramid')
     meta_data=[n_workers,main_dir,process,tile_size,sigma_gauss,kernel_CLAHE,nbins_CLAHE,clip_CLAHE,layer_limit_pyr,downscaled_pyr,process]
     os.makedirs(main_dir, exist_ok=True)
